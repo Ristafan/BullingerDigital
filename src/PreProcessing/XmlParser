@@ -25,23 +25,23 @@ class XmlParser:
         else:
             raise ValueError("No summary found in the XML file.")
 
-        # Iterate through the XML text to get person and location names
-        text_tag = f"{{{TEI_NAMESPACE}}}text"
-        text_element = root.find(f".//{text_tag}")
+        # Iterate through the XML body to get person and location names
+        body_tag = f"{{{TEI_NAMESPACE}}}body"
+        body_element = root.find(f".//{body_tag}")
 
-        if text_element is not None:
-            pers_names_text = {}
-            place_names_text = {}
-            self.iterate_elements(text_element, pers_names_text, "persName", 0)
-            self.iterate_elements(text_element, place_names_text, "placeName", 0)
+        if body_element is not None:
+            pers_names_body = {}
+            place_names_body = {}
+            self.iterate_elements(body_element, pers_names_body, "persName", 0)
+            self.iterate_elements(body_element, place_names_body, "placeName", 0)
         else:
-            raise ValueError("No text found in the XML file.")
+            raise ValueError("No body found in the XML file.")
 
-        self.content = [pers_names_summary, place_names_summary, pers_names_text, place_names_text]
-        return pers_names_summary, place_names_summary, pers_names_text, place_names_text
+        self.content = [pers_names_summary, place_names_summary, pers_names_body, place_names_body]
+        return pers_names_summary, place_names_summary, pers_names_body, place_names_body
 
     def iterate_elements(self, element, dictionary, dict_type, level=0):
-        """Recursively iterate through XML elements and returns the text of a child element."""
+        """Recursively iterate through XML elements and returns the body of a child element."""
         for child in element:
             if self.has_children(child):
                 self.iterate_elements(child, dictionary, dict_type, level + 1)
@@ -61,7 +61,7 @@ class XmlParser:
 
     @staticmethod
     def add_to_dictionary(dictionary, element, reference):
-        """Add the text of an XML element to a dictionary."""
+        """Add the body of an XML element to a dictionary."""
         if element in dictionary:
             dictionary[element]["count"] += 1
         else:
@@ -69,6 +69,22 @@ class XmlParser:
                 "ref": reference,
                 "count": 1
             }
+
+    @staticmethod
+    def reverse_text_and_reference(dictionary):
+        """Reverse the text and reference in the dictionary."""
+        ref_dict = {}
+        for name, value in dictionary.items():
+            if value["ref"] in ref_dict:
+                ref_dict[value["ref"]]["name"].append(name)
+                ref_dict[value["ref"]]["count"] += value["count"]
+            else:
+                ref_dict[value["ref"]] = {
+                    "name": [name],
+                    "count": value["count"]
+                }
+
+        return ref_dict
 
     def print_content(self):
         print("Person Names in Summary:")
@@ -79,11 +95,11 @@ class XmlParser:
         for name, info in self.content[1].items():
             print(f"{name}: {info['count']} times, Reference: {info['ref']}")
 
-        print("\nPerson Names in Text:")
+        print("\nPerson Names in body:")
         for name, info in self.content[2].items():
             print(f"{name}: {info['count']} times, Reference: {info['ref']}")
 
-        print("\nPlace Names in Text:")
+        print("\nPlace Names in body:")
         for name, info in self.content[3].items():
             print(f"{name}: {info['count']} times, Reference: {info['ref']}")
 
@@ -92,7 +108,12 @@ if __name__ == "__main__":
     filepath = "G:/Meine Ablage/ILU/NEW/1.xml"
 
     parser = XmlParser(filepath)
-    pers_names_summary, place_names_summary, pers_names_text, place_names_text = parser.parse_xml()
+    pers_names_summary, place_names_summary, pers_names_body, place_names_body = parser.parse_xml()
     parser.print_content()
+
+    print(pers_names_summary)
+    reversed_dict = parser.reverse_text_and_reference(pers_names_summary)
+    print("\nReversed Person Names in Summary:")
+    print(reversed_dict)
 
 
