@@ -1,5 +1,6 @@
-import csv
+import os.path
 import xml.etree.ElementTree as ET
+import json
 
 
 class XmlParser:
@@ -54,6 +55,25 @@ class XmlParser:
             else:
                 pass
 
+    def save_entities_as_json(self, filepath):
+        filename = os.path.basename(filepath).split('.')[0]
+
+        data = {
+            filename: {
+                "summary": {
+                    "persNames": self.content[0],
+                    "placeNames": self.content[1]
+                },
+                "body": {
+                    "persNames": self.content[2],
+                    "placeNames": self.content[3]
+                }
+            }
+        }
+
+        with open(f"Entities/{filename}_entities.json", "w") as json_file:
+            json.dump(data, json_file, indent=4)
+
     @staticmethod
     def has_children(element):
         """Check if an XML element has children."""
@@ -105,15 +125,11 @@ class XmlParser:
 
 
 if __name__ == "__main__":
-    filepath = "G:/Meine Ablage/ILU/NEW/1.xml"
+    filepath = "G:/Meine Ablage/ILU/OLD/1_OLD.xml"
 
     parser = XmlParser(filepath)
     pers_names_summary, place_names_summary, pers_names_body, place_names_body = parser.parse_xml()
     parser.print_content()
-
-    print(pers_names_summary)
-    reversed_dict = parser.reverse_text_and_reference(pers_names_summary)
-    print("\nReversed Person Names in Summary:")
-    print(reversed_dict)
+    parser.save_entities_as_json(filepath)
 
 

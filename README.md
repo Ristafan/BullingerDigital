@@ -21,7 +21,7 @@ This project aims to create a sustainable foundation for automated entity recogn
         }
       }
     },
-    "text": {
+    "body": {
       "persNames": {
         "": {
           "ref": "",
