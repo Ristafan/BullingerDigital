@@ -6,3 +6,79 @@ class XmlParser:
     def __init__(self, filepath):
         self.filepath = filepath
         self.content = []
+
+    def parse_xml(self):
+        # create element tree object
+        tree = ET.parse(self.filepath)
+        root = tree.getroot()
+        TEI_NAMESPACE = "http://www.tei-c.org/ns/1.0"
+        summary_tag = f"{{{TEI_NAMESPACE}}}summary"
+        summary_element = root.find(f".//{summary_tag}")
+
+        # Iterate through the XML summary to get person and location names
+        if summary_element is not None:
+            persNamesSummary = {}
+            locNamesSummary = {}
+
+            self.iterate_elements(summary_element, 0)
+        else:
+            print("No summary found in the XML file.")
+
+        print(self.content)
+
+    def iterate_elements(self, element, level=0):
+        """Recursively iterate through XML elements and returns the text of a child element."""
+        for child in element:
+            if self.has_children(child):
+                self.iterate_elements(child, level + 1)
+            else:
+                # Print the tag and text of the element
+                print(f"{' ' * (level * 2)}{child.tag}: {child.text}")
+                self.content.append((child.tag, child.text))
+
+    @staticmethod
+    def has_children(element):
+        """Check if an XML element has children."""
+        return any(True for _ in element)
+
+
+if __name__ == "__main__":
+    filepath = "G:/Meine Ablage/ILU/NEW/1.xml"
+
+    parser = XmlParser(filepath)
+    parser.parse_xml()
+
+
+"""
+# Iterate through the XML summary to get person and location names
+        persNamesSummary = {}
+        locNamesSummary = {}
+
+        for child in root[0][0][2][3][1][0]:
+            for subchild in child:
+                if "persName" in subchild.tag:
+                    if subchild.text in persNamesSummary.keys():
+                        persNamesSummary[subchild.text] += 1
+                    else:
+                        persNamesSummary[subchild.text] = 1
+
+                if "locName" in subchild.tag:
+                    if subchild.text in locNamesSummary.keys():
+                        locNamesSummary[subchild.text] += 1
+                    else:
+                        locNamesSummary[subchild.text] = 1
+
+        print("Person Names:")
+        for key, value in persNamesSummary.items():
+            print(f"{key}: {value}")
+
+        print("\nLocation Names:")
+        for key, value in locNamesSummary.items():
+            print(f"{key}: {value}")
+
+        # Iterate through the XML text to get the person and location names
+        persNamesText = {}
+        locNamesText = {}
+
+        for child in root[1]:
+"""
