@@ -1,0 +1,8 @@
+import csv
+import xml.etree.ElementTree as ET
+
+
+class XmlParser:
+    def __init__(self, filepath):
+        self.filepath = filepath
+        self.content = []
