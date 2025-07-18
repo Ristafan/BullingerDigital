@@ -12,73 +12,82 @@ class XmlParser:
         tree = ET.parse(self.filepath)
         root = tree.getroot()
         TEI_NAMESPACE = "http://www.tei-c.org/ns/1.0"
+
+        # Iterate through the XML summary to get person and location names
         summary_tag = f"{{{TEI_NAMESPACE}}}summary"
         summary_element = root.find(f".//{summary_tag}")
 
-        # Iterate through the XML summary to get person and location names
         if summary_element is not None:
-            persNamesSummary = {}
-            locNamesSummary = {}
-
-            self.iterate_elements(summary_element, 0)
+            pers_names_summary = {}
+            place_names_summary = {}
+            self.iterate_elements(summary_element, pers_names_summary, "persName", 0)
+            self.iterate_elements(summary_element, place_names_summary, "placeName", 0)
         else:
-            print("No summary found in the XML file.")
+            raise ValueError("No summary found in the XML file.")
 
-        print(self.content)
+        # Iterate through the XML text to get person and location names
+        text_tag = f"{{{TEI_NAMESPACE}}}text"
+        text_element = root.find(f".//{text_tag}")
 
-    def iterate_elements(self, element, level=0):
+        if text_element is not None:
+            pers_names_text = {}
+            place_names_text = {}
+            self.iterate_elements(text_element, pers_names_text, "persName", 0)
+            self.iterate_elements(text_element, place_names_text, "placeName", 0)
+        else:
+            raise ValueError("No text found in the XML file.")
+
+        return pers_names_summary, place_names_summary, pers_names_text, place_names_text
+
+    def iterate_elements(self, element, dictionary, dict_type, level=0):
         """Recursively iterate through XML elements and returns the text of a child element."""
         for child in element:
             if self.has_children(child):
-                self.iterate_elements(child, level + 1)
+                self.iterate_elements(child, dictionary, dict_type, level + 1)
+            elif dict_type in child.tag:
+                try:
+                    child.get("ref")
+                except TypeError:
+                    child.set("ref", "unknown")
+                self.add_to_dictionary(dictionary, child.text, child.get("ref"))
             else:
-                # Print the tag and text of the element
-                print(f"{' ' * (level * 2)}{child.tag}: {child.text}")
-                self.content.append((child.tag, child.text))
+                pass
 
     @staticmethod
     def has_children(element):
         """Check if an XML element has children."""
         return any(True for _ in element)
 
+    @staticmethod
+    def add_to_dictionary(dictionary, element, reference):
+        """Add the text of an XML element to a dictionary."""
+        if element in dictionary:
+            dictionary[element]["count"] += 1
+        else:
+            dictionary[element] = {
+                "ref": reference,
+                "count": 1
+            }
+
 
 if __name__ == "__main__":
     filepath = "G:/Meine Ablage/ILU/NEW/1.xml"
 
     parser = XmlParser(filepath)
-    parser.parse_xml()
+    pers_names_summary, place_names_summary, pers_names_text, place_names_text = parser.parse_xml()
 
+    print("Person Names in Summary:")
+    for name, info in pers_names_summary.items():
+        print(f"{name}: {info['count']} times, Reference: {info['ref']}")
 
-"""
-# Iterate through the XML summary to get person and location names
-        persNamesSummary = {}
-        locNamesSummary = {}
+    print("\nPlace Names in Summary:")
+    for name, info in place_names_summary.items():
+        print(f"{name}: {info['count']} times, Reference: {info['ref']}")
 
-        for child in root[0][0][2][3][1][0]:
-            for subchild in child:
-                if "persName" in subchild.tag:
-                    if subchild.text in persNamesSummary.keys():
-                        persNamesSummary[subchild.text] += 1
-                    else:
-                        persNamesSummary[subchild.text] = 1
+    print("\nPerson Names in Text:")
+    for name, info in pers_names_text.items():
+        print(f"{name}: {info['count']} times, Reference: {info['ref']}")
 
-                if "locName" in subchild.tag:
-                    if subchild.text in locNamesSummary.keys():
-                        locNamesSummary[subchild.text] += 1
-                    else:
-                        locNamesSummary[subchild.text] = 1
-
-        print("Person Names:")
-        for key, value in persNamesSummary.items():
-            print(f"{key}: {value}")
-
-        print("\nLocation Names:")
-        for key, value in locNamesSummary.items():
-            print(f"{key}: {value}")
-
-        # Iterate through the XML text to get the person and location names
-        persNamesText = {}
-        locNamesText = {}
-
-        for child in root[1]:
-"""
+    print("\nPlace Names in Text:")
+    for name, info in place_names_text.items():
+        print(f"{name}: {info['count']} times, Reference: {info['ref']}")
