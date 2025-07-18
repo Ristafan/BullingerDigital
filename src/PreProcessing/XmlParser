@@ -37,6 +37,7 @@ class XmlParser:
         else:
             raise ValueError("No text found in the XML file.")
 
+        self.content = [pers_names_summary, place_names_summary, pers_names_text, place_names_text]
         return pers_names_summary, place_names_summary, pers_names_text, place_names_text
 
     def iterate_elements(self, element, dictionary, dict_type, level=0):
@@ -69,25 +70,29 @@ class XmlParser:
                 "count": 1
             }
 
+    def print_content(self):
+        print("Person Names in Summary:")
+        for name, info in self.content[0].items():
+            print(f"{name}: {info['count']} times, Reference: {info['ref']}")
+
+        print("\nPlace Names in Summary:")
+        for name, info in self.content[1].items():
+            print(f"{name}: {info['count']} times, Reference: {info['ref']}")
+
+        print("\nPerson Names in Text:")
+        for name, info in self.content[2].items():
+            print(f"{name}: {info['count']} times, Reference: {info['ref']}")
+
+        print("\nPlace Names in Text:")
+        for name, info in self.content[3].items():
+            print(f"{name}: {info['count']} times, Reference: {info['ref']}")
+
 
 if __name__ == "__main__":
     filepath = "G:/Meine Ablage/ILU/NEW/1.xml"
 
     parser = XmlParser(filepath)
     pers_names_summary, place_names_summary, pers_names_text, place_names_text = parser.parse_xml()
+    parser.print_content()
 
-    print("Person Names in Summary:")
-    for name, info in pers_names_summary.items():
-        print(f"{name}: {info['count']} times, Reference: {info['ref']}")
 
-    print("\nPlace Names in Summary:")
-    for name, info in place_names_summary.items():
-        print(f"{name}: {info['count']} times, Reference: {info['ref']}")
-
-    print("\nPerson Names in Text:")
-    for name, info in pers_names_text.items():
-        print(f"{name}: {info['count']} times, Reference: {info['ref']}")
-
-    print("\nPlace Names in Text:")
-    for name, info in place_names_text.items():
-        print(f"{name}: {info['count']} times, Reference: {info['ref']}")
