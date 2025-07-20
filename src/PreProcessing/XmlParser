@@ -1,16 +1,18 @@
+import glob
 import os.path
 import xml.etree.ElementTree as ET
 import json
 
+import pandas as pd
+
 
 class XmlParser:
-    def __init__(self, filepath):
-        self.filepath = filepath
+    def __init__(self):
         self.content = []
 
-    def parse_xml(self):
+    def parse_xml(self, filepath):
         # create element tree object
-        tree = ET.parse(self.filepath)
+        tree = ET.parse(filepath)
         root = tree.getroot()
         TEI_NAMESPACE = "http://www.tei-c.org/ns/1.0"
 
@@ -18,25 +20,27 @@ class XmlParser:
         summary_tag = f"{{{TEI_NAMESPACE}}}summary"
         summary_element = root.find(f".//{summary_tag}")
 
+        pers_names_summary = {}
+        place_names_summary = {}
+
         if summary_element is not None:
-            pers_names_summary = {}
-            place_names_summary = {}
             self.iterate_elements(summary_element, pers_names_summary, "persName", 0)
             self.iterate_elements(summary_element, place_names_summary, "placeName", 0)
         else:
-            raise ValueError("No summary found in the XML file.")
+            print("No summary found in the XML file.")
 
         # Iterate through the XML body to get person and location names
         body_tag = f"{{{TEI_NAMESPACE}}}body"
         body_element = root.find(f".//{body_tag}")
 
+        pers_names_body = {}
+        place_names_body = {}
+
         if body_element is not None:
-            pers_names_body = {}
-            place_names_body = {}
             self.iterate_elements(body_element, pers_names_body, "persName", 0)
             self.iterate_elements(body_element, place_names_body, "placeName", 0)
         else:
-            raise ValueError("No body found in the XML file.")
+            print("No body found in the XML file.")
 
         self.content = [pers_names_summary, place_names_summary, pers_names_body, place_names_body]
         return pers_names_summary, place_names_summary, pers_names_body, place_names_body
@@ -54,6 +58,57 @@ class XmlParser:
                 self.add_to_dictionary(dictionary, child.text, child.get("ref"))
             else:
                 pass
+
+    @staticmethod
+    def json_files_to_csv(filenames):
+        df_columns = ["Filename", "summary_entities_found", "body_entities_found", "distinct_summary_PersCount", "total_summary_PersCount",
+                      "distinct_summary_PlaceCount", "total_summary_PlaceCount",
+                      "distinct_body_PersCount", "total_body_PersCount",
+                      "distinct_body_PlaceCount", "total_body_PlaceCount"]
+
+        # Create dataframe with the specified columns
+        df = pd.DataFrame(columns=df_columns)
+
+        # Iterate through each file and extract the required information
+        for filename in filenames:
+            with open(filename, "r") as json_file:
+                data = json.load(json_file)
+                key = list(data.keys())[0]
+
+                summary_pers_names = data[key]["summary"]["persNames"]
+                summary_place_names = data[key]["summary"]["placeNames"]
+                body_pers_names = data[key]["body"]["persNames"]
+                body_place_names = data[key]["body"]["placeNames"]
+
+                summary = True if len(summary_pers_names) + len(summary_place_names) > 0 else False
+                body = True if len(body_pers_names) + len(body_place_names) > 0 else False
+
+                # Extract counts
+                distinct_summary_pers_count = len(summary_pers_names)
+                distinct_summary_place_count = len(summary_place_names)
+                distinct_body_pers_count = len(body_pers_names)
+                distinct_body_place_count = len(body_place_names)
+
+                # Create a new row for the dataframe
+                new_row = {
+                    "Filename": key,
+                    "summary_entities_found": summary,
+                    "body_entities_found": body,
+                    "distinct_summary_PersCount": distinct_summary_pers_count,
+                    "total_summary_PersCount": sum(info["count"] for info in summary_pers_names.values()),
+                    "distinct_summary_PlaceCount": distinct_summary_place_count,
+                    "total_summary_PlaceCount": sum(info["count"] for info in summary_place_names.values()),
+                    "distinct_body_PersCount": distinct_body_pers_count,
+                    "total_body_PersCount": sum(info["count"] for info in body_pers_names.values()),
+                    "distinct_body_PlaceCount": distinct_body_place_count,
+                    "total_body_PlaceCount": sum(info["count"] for info in body_place_names.values())
+                }
+
+                # Append the new row to the dataframe
+                df = df._append(new_row, ignore_index=True)
+
+        # Save the dataframe to an Excel file
+        df.to_excel("Entities/summary_entities.xlsx", index=False)
 
     def save_entities_as_json(self, filepath):
         filename = os.path.basename(filepath).split('.')[0]
@@ -125,11 +180,17 @@ class XmlParser:
 
 
 if __name__ == "__main__":
+    folder_path = "G:/Meine Ablage/ILU/NEW"
     filepath = "G:/Meine Ablage/ILU/OLD/1_OLD.xml"
 
-    parser = XmlParser(filepath)
-    pers_names_summary, place_names_summary, pers_names_body, place_names_body = parser.parse_xml()
-    parser.print_content()
-    parser.save_entities_as_json(filepath)
+    all_files = glob.glob(folder_path + "/*.xml")
 
+    #for file in all_files:
+    #    parser = XmlParser()
+    #    pers_names_summary, place_names_summary, pers_names_body, place_names_body = parser.parse_xml(file)
+    #    # parser.print_content()
+    #    parser.save_entities_as_json(file)
 
+    files = glob.glob("G:/Meine Ablage/ILU/BullingerDigital/src/PreProcessing/Entities/*_entities.json")
+    parser = XmlParser()
+    parser.json_files_to_csv(files)
