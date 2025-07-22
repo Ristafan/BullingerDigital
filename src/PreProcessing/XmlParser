@@ -9,9 +9,12 @@ import pandas as pd
 class XmlParser:
     def __init__(self):
         self.content = []
+        self.pers_names_footnotes = {}
+        self.place_names_footnotes = {}
 
     def parse_xml(self, filepath):
         # create element tree object
+        ET.XMLParser(encoding="utf-8")
         tree = ET.parse(filepath)
         root = tree.getroot()
         TEI_NAMESPACE = "http://www.tei-c.org/ns/1.0"
@@ -24,8 +27,8 @@ class XmlParser:
         place_names_summary = {}
 
         if summary_element is not None:
-            self.iterate_elements(summary_element, pers_names_summary, "persName", 0)
-            self.iterate_elements(summary_element, place_names_summary, "placeName", 0)
+            self.iterate_elements(summary_element, pers_names_summary, "persName", [])
+            self.iterate_elements(summary_element, place_names_summary, "placeName", [])
         else:
             print("No summary found in the XML file.")
 
@@ -37,34 +40,62 @@ class XmlParser:
         place_names_body = {}
 
         if body_element is not None:
-            self.iterate_elements(body_element, pers_names_body, "persName", 0)
-            self.iterate_elements(body_element, place_names_body, "placeName", 0)
+            self.iterate_elements(body_element, pers_names_body, "persName", [])
+            self.iterate_elements(body_element, place_names_body, "placeName", [])
         else:
             print("No body found in the XML file.")
 
         self.content = [pers_names_summary, place_names_summary, pers_names_body, place_names_body]
         return pers_names_summary, place_names_summary, pers_names_body, place_names_body
 
-    def iterate_elements(self, element, dictionary, dict_type, level=0):
+    def iterate_elements(self, element, dictionary, dict_type, ancestor_path):
         """Recursively iterate through XML elements and returns the body of a child element."""
+        # Add current element to ancestor path
+        current_path = ancestor_path + [element]
+
         for child in element:
+            # Check if the child has children
             if self.has_children(child):
-                self.iterate_elements(child, dictionary, dict_type, level + 1)
-            elif dict_type in child.tag:
+                # If the child has children, recursively call this function
+                self.iterate_elements(child, dictionary, dict_type, current_path)
+
+            # Check if the child is of the specified type
+            elif child.tag[29:] in [dict_type]:
                 try:
                     child.get("ref")
                 except TypeError:
                     child.set("ref", "unknown")
-                self.add_to_dictionary(dictionary, child.text, child.get("ref"))
-            else:
-                pass
+
+                # Check if we're inside a footnote by examining the ancestor path
+                inside_footnote = self.is_inside_footnote_with_path(current_path)
+
+                # If inside a footnote, add to footnotes dictionary
+                if inside_footnote:
+                    if dict_type == "persName":
+                        self.add_to_dictionary(self.pers_names_footnotes, child.text, child.get("ref"))
+                    elif dict_type == "placeName":
+                        self.add_to_dictionary(self.place_names_footnotes, child.text, child.get("ref"))
+
+                # If not inside a footnote, add to the main dictionary
+                else:
+                    self.add_to_dictionary(dictionary, child.text, child.get("ref"))
+
+    @staticmethod
+    def is_inside_footnote_with_path(ancestor_path):
+        """Check if any ancestor in the path is a footnote."""
+        for ancestor in ancestor_path:
+            if ancestor.get("type") == "footnote":
+                return True
+        return False
 
     @staticmethod
     def json_files_to_csv(filenames):
-        df_columns = ["Filename", "summary_entities_found", "body_entities_found", "distinct_summary_PersCount", "total_summary_PersCount",
+        df_columns = ["Filename", "summary_entities_found", "body_entities_found", "footnotes_entities_found", "distinct_summary_PersCount", "total_summary_PersCount",
                       "distinct_summary_PlaceCount", "total_summary_PlaceCount",
                       "distinct_body_PersCount", "total_body_PersCount",
-                      "distinct_body_PlaceCount", "total_body_PlaceCount"]
+                      "distinct_body_PlaceCount", "total_body_PlaceCount",
+                      "distinct_footnotes_PersCount", "total_footnotes_PersCount",
+                      "distinct_footnotes_PlaceCount", "total_footnotes_PlaceCount"]
 
         # Create dataframe with the specified columns
         df = pd.DataFrame(columns=df_columns)
@@ -79,21 +110,27 @@ class XmlParser:
                 summary_place_names = data[key]["summary"]["placeNames"]
                 body_pers_names = data[key]["body"]["persNames"]
                 body_place_names = data[key]["body"]["placeNames"]
+                footnotes_pers_names = data[key]["footnotes"]["persNames"]
+                footnotes_place_names = data[key]["footnotes"]["placeNames"]
 
                 summary = True if len(summary_pers_names) + len(summary_place_names) > 0 else False
                 body = True if len(body_pers_names) + len(body_place_names) > 0 else False
+                footnotes = True if len(footnotes_pers_names) + len(footnotes_place_names) > 0 else False
 
                 # Extract counts
                 distinct_summary_pers_count = len(summary_pers_names)
                 distinct_summary_place_count = len(summary_place_names)
                 distinct_body_pers_count = len(body_pers_names)
                 distinct_body_place_count = len(body_place_names)
+                distinct_footnotes_pers_count = len(footnotes_pers_names)
+                distinct_footnotes_place_count = len(footnotes_place_names)
 
                 # Create a new row for the dataframe
                 new_row = {
                     "Filename": key,
                     "summary_entities_found": summary,
                     "body_entities_found": body,
+                    "footnotes_entities_found": footnotes,
                     "distinct_summary_PersCount": distinct_summary_pers_count,
                     "total_summary_PersCount": sum(info["count"] for info in summary_pers_names.values()),
                     "distinct_summary_PlaceCount": distinct_summary_place_count,
@@ -101,7 +138,11 @@ class XmlParser:
                     "distinct_body_PersCount": distinct_body_pers_count,
                     "total_body_PersCount": sum(info["count"] for info in body_pers_names.values()),
                     "distinct_body_PlaceCount": distinct_body_place_count,
-                    "total_body_PlaceCount": sum(info["count"] for info in body_place_names.values())
+                    "total_body_PlaceCount": sum(info["count"] for info in body_place_names.values()),
+                    "distinct_footnotes_PersCount": distinct_footnotes_pers_count,
+                    "total_footnotes_PersCount": sum(info["count"] for info in footnotes_pers_names.values()),
+                    "distinct_footnotes_PlaceCount": distinct_footnotes_place_count,
+                    "total_footnotes_PlaceCount": sum(info["count"] for info in footnotes_place_names.values())
                 }
 
                 # Append the new row to the dataframe
@@ -122,11 +163,15 @@ class XmlParser:
                 "body": {
                     "persNames": self.content[2],
                     "placeNames": self.content[3]
+                },
+                "footnotes": {
+                    "persNames": self.pers_names_footnotes,
+                    "placeNames": self.place_names_footnotes
                 }
             }
         }
 
-        with open(f"Entities/{filename}_entities.json", "w") as json_file:
+        with open(f"Entities/{filename}_entities.json", "w", encoding="utf-8") as json_file:
             json.dump(data, json_file, indent=4)
 
     @staticmethod
@@ -180,12 +225,13 @@ class XmlParser:
 
 
 if __name__ == "__main__":
-    folder_path = "G:/Meine Ablage/ILU/NEW"
+    folder_path = "G:/Meine Ablage/ILU/OLD"
     filepath = "G:/Meine Ablage/ILU/OLD/1_OLD.xml"
 
     all_files = glob.glob(folder_path + "/*.xml")
 
     #for file in all_files:
+    #    print(f"Processing file: {file}")
     #    parser = XmlParser()
     #    pers_names_summary, place_names_summary, pers_names_body, place_names_body = parser.parse_xml(file)
     #    # parser.print_content()
