@@ -1,6 +1,9 @@
 import xml.etree.ElementTree as ET
-from typing import List, Union, Optional
+from typing import List, Union, Optional, Dict, Any
 import os
+import re
+import json
+
 
 class XMLDocumentParserForNer:
     """
@@ -309,10 +312,140 @@ class XMLDocumentParserForNer:
 
         print(f"\nTOTAL SENTENCES: {len(self.parsed_sentences)}")
 
+    def tokenize_and_extract_ner(self) -> List[Dict[str, Any]]:
+        """
+        Tokenize all parsed sentences and extract NER information.
+
+        Returns:
+            List of dictionaries with tokenized text and NER annotations
+        """
+        result = []
+
+        for sentence in self.parsed_sentences:
+            tokenized_data = self._process_sentence_for_ner(sentence)
+            result.append(tokenized_data)
+
+        return result
+
+    def _process_sentence_for_ner(self, sentence: str) -> Dict[str, Any]:
+        """
+        Process a single sentence to extract tokens and NER information.
+
+        Args:
+            sentence: Input sentence with NER tags
+
+        Returns:
+            Dictionary with tokenized_text and ner lists
+        """
+        # First tokenize the sentence as-is (with NER tags)
+        tokens = re.findall(r'\w+(?:[-_]\w+)*|\S', sentence)
+
+        # Extract NER information from the tokens
+        ner_annotations = []
+        clean_tokens = []
+        token_idx = 0
+
+        i = 0
+        while i < len(tokens):
+            token = tokens[i]
+
+            # Check if this token is a NER tag
+            if token.startswith(('startPers', 'endPers', 'singlePers', 'startPlace', 'endPlace', 'singlePlace')):
+                # Extract the tag type and word
+                if token.startswith('startPers'):
+                    tag_type = 'startPers'
+                    word = token[9:]  # Remove 'startPers'
+                    entity_type = 'person'
+                elif token.startswith('endPers'):
+                    tag_type = 'endPers'
+                    word = token[7:]  # Remove 'endPers'
+                    entity_type = 'person'
+                elif token.startswith('singlePers'):
+                    tag_type = 'singlePers'
+                    word = token[10:]  # Remove 'singlePers'
+                    entity_type = 'person'
+                elif token.startswith('startPlace'):
+                    tag_type = 'startPlace'
+                    word = token[10:]  # Remove 'startPlace'
+                    entity_type = 'location'
+                elif token.startswith('endPlace'):
+                    tag_type = 'endPlace'
+                    word = token[8:]  # Remove 'endPlace'
+                    entity_type = 'location'
+                elif token.startswith('singlePlace'):
+                    tag_type = 'singlePlace'
+                    word = token[11:]  # Remove 'singlePlace'
+                    entity_type = 'location'
+
+                # Add the word to clean tokens
+                clean_tokens.append(word)
+
+                # Handle different tag types
+                if tag_type.startswith('single'):
+                    # Single word entity
+                    ner_annotations.append([token_idx, token_idx, entity_type])
+                elif tag_type.startswith('start'):
+                    # Find the corresponding end tag
+                    start_pos = token_idx
+                    end_pos = start_pos
+
+                    # Look ahead for the end tag
+                    j = i + 1
+                    while j < len(tokens):
+                        next_token = tokens[j]
+                        expected_end = f"end{'Pers' if 'Pers' in tag_type else 'Place'}"
+
+                        if next_token.startswith(expected_end):
+                            # Found the end tag, extract its word
+                            end_word = next_token[len(expected_end):]
+                            clean_tokens.append(end_word)
+                            end_pos = token_idx
+                            i = j  # Skip to after the end tag
+                            break
+                        else:
+                            # Regular token between start and end
+                            clean_tokens.append(next_token)
+                            token_idx += 1
+                        j += 1
+
+                    ner_annotations.append([start_pos, end_pos + 1, entity_type])
+
+                token_idx += 1
+            else:
+                # Regular token, just add it
+                clean_tokens.append(token)
+                token_idx += 1
+
+            i += 1
+
+        return {
+            "tokenized_text": clean_tokens,
+            "ner": ner_annotations
+        }
+
+    def save_tokenized_data_as_json(self, output_file_path: str) -> None:
+        """
+        Save the tokenized data with NER annotations as JSON.
+
+        Args:
+            output_file_path: Path where to save the JSON file
+        """
+        tokenized_data = self.tokenize_and_extract_ner()
+
+        try:
+            with open(output_file_path, 'w', encoding='utf-8') as f:
+                json.dump(tokenized_data, f, ensure_ascii=False, indent=2)
+            print(f"Tokenized data saved to: {output_file_path}")
+        except Exception as e:
+            raise IOError(f"Failed to save JSON file: {e}")
+
 
 # Example usage and test cases
 if __name__ == "__main__":
     namespace = TEI_NAMESPACE = "http://www.tei-c.org/ns/1.0"
     xml_file_path = "G:/Meine Ablage/ILU/BullingerDigital/src/GLiNER/LettersOriginal/1.xml"
-    parser = XMLDocumentParser(xml_file_path, namespace)
+    parser = XMLDocumentParserForNer(xml_file_path, namespace)
     parser.print_parsed_content()
+    tokenized_data = parser.tokenize_and_extract_ner()
+    parser.save_tokenized_data_as_json("output.json")
+
