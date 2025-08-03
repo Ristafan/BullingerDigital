@@ -1,12 +1,14 @@
 import os
 from datetime import datetime
 import torch
+import json
 
 print("Set environment variables for offline mode", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
 print("Load GLiNER Entity Prediction", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 from gliner.model import GLiNER
 
+""" Test code for GLiNER entity prediction
 # Load the model from the saved directory
 print("Loading model...", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
@@ -28,6 +30,7 @@ for entity in entities:
     print(entity["text"], "=>", entity["label"])
 
 print("Entity prediction completed", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+"""
 
 
 class NER:
@@ -40,3 +43,23 @@ class NER:
     def display(self, entities):
         for entity in entities:
             print(entity["text"], "=>", entity["label"])
+
+
+if __name__ == "__main__":
+    with open("training_sentences_and_annotations(1).json", "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    ner = NER()
+
+    for sentence in data.keys():
+        print(f"Processing sentence: {sentence}")
+        original_sentence = data[sentence]["original_sentence"]
+        entities = ner.predict(original_sentence, labels=["Location", "Person"], threshold=0.5)
+
+        print(f"Original Sentence: {" ".join(data[sentence]['tokenized_text'])}")
+        print("Labelled Entities:")
+        print(data[sentence]["ner"])
+        print("Predicted Entities:")
+        for entity in entities:
+            print(f"[{entity['start']},  {entity['end']}, {entity['label']}] --> {entity['text']} score: {round(entity['score'], 2)}")
+        print("\n")
