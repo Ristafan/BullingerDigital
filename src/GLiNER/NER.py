@@ -1,5 +1,6 @@
 import os
 from datetime import datetime
+import pandas
 import torch
 import json
 from tqdm import tqdm
@@ -8,30 +9,6 @@ print("Set environment variables for offline mode", datetime.now().strftime("%Y-
 
 print("Load GLiNER Entity Prediction", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 from gliner.model import GLiNER
-
-""" Test code for GLiNER entity prediction
-# Load the model from the saved directory
-print("Loading model...", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-device = "cuda:0" if torch.cuda.is_available() else "cpu"
-model = GLiNER.from_pretrained("models/checkpoint-5900").to(device)
-print(f"Model on {device} loaded successfully", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-
-text = "Gessner bittet Bullinger um die Durchsicht seiner Schrift [«Pandectarum libri XXI»]. Sollte dessen Zeit nicht dafür ausreichen, möge er wenigstens den letzten Teil zur Theologie [«Partitiones theologicae»] lesen. Die Begutachtung des Übrigen eilt derzeit nicht."
-
-# Labels for entity prediction
-labels = ["Location", "Person"] # for v2.1 use capital case for better performance
-
-# Perform entity prediction
-print("Predicting entities...", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-entities = model.predict_entities(text, labels, threshold=0.5)
-
-# Display predicted entities and their labels
-print("Predicted entities:", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-for entity in entities:
-    print(entity["text"], "=>", entity["label"])
-
-print("Entity prediction completed", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-"""
 
 
 class NER:
@@ -86,7 +63,7 @@ class NER:
             f.write("\n")
 
     @staticmethod
-    def save_to_json(sentence_pair, original_sentence, entities):
+    def convert_to_json_format(sentence_pair, original_sentence, entities):
         output = {
             "sentence_pair": sentence_pair,
             "original_sentence": original_sentence,
@@ -95,6 +72,41 @@ class NER:
         }
 
         return output
+
+    @staticmethod
+    def save_meta_information_to_excel(all_predicted_entities):
+        # Extract meta information from the predicted entities
+        filename_and_sentence_index = []
+        num_predictions = []
+        num_labels = []
+
+        num_person_predictions = []
+        num_location_predictions = []
+        num_person_labels = []
+        num_location_labels = []
+
+        for sentence in all_predicted_entities:
+            filename_and_sentence_index.append(sentence["sentence_pair"])
+            num_predictions.append(len(sentence["entities"]))
+            num_labels.append(len(sentence["labelled_entities"]))
+
+            num_person_predictions.append(len([e for e in sentence["entities"] if e["label"] == "Person"]))
+            num_person_labels.append(len([e for e in sentence["labelled_entities"] if e[2] == "person"]))
+            num_location_predictions.append(len([e for e in sentence["entities"] if e["label"] == "Location"]))
+            num_location_labels.append(len([e for e in sentence["labelled_entities"] if e[2] == "location"]))
+
+        # Create a DataFrame and save it to an Excel file
+        df = pandas.DataFrame({
+            "filename_and_sentence_index": filename_and_sentence_index,
+            "num_predictions": num_predictions,
+            "num_labels": num_labels,
+            "num_person_predictions": num_person_predictions,
+            "num_person_labels": num_person_labels,
+            "num_location_predictions": num_location_predictions,
+            "num_location_labels": num_location_labels
+        })
+
+        df.to_excel("meta_information.xlsx", index=False, engine='openpyxl')
 
 
 if __name__ == "__main__":
@@ -106,7 +118,6 @@ if __name__ == "__main__":
 
     # Initialize the NER model
     ner = NER()
-    i = 0
 
     # Process each sentence pair in the data
     for sentence_pair in tqdm(data.keys()):
@@ -118,18 +129,15 @@ if __name__ == "__main__":
         ner.save_to_txt(sentence_pair, data, entities)
 
         # Save the results to later use in a JSON file
-        all_predicted_entities.append(ner.save_to_json(sentence_pair, original_sentence, entities))
-
-        # Save the results to later us in an Excel file
-
-
-
-        i += 1
-        if i == 20:
-            break
+        all_predicted_entities.append(ner.convert_to_json_format(sentence_pair, original_sentence, entities))
 
     # Save all predicted entities to a JSON file
+    print("Saving predicted entities to JSON file", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
     with open("predicted_entities.json", "a", encoding="utf-8") as f:
         json.dump(all_predicted_entities, f, ensure_ascii=False, indent=4)
+
+    # Save meta information to an Excel file
+    print("Saving meta information to Excel file", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    ner.save_meta_information_to_excel(all_predicted_entities)
 
 
