@@ -2,6 +2,7 @@ import os
 from datetime import datetime
 import torch
 import json
+from tqdm import tqdm
 
 print("Set environment variables for offline mode", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
@@ -51,15 +52,41 @@ if __name__ == "__main__":
 
     ner = NER()
 
-    for sentence in data.keys():
-        print(f"Processing sentence: {sentence}")
-        original_sentence = data[sentence]["original_sentence"]
-        entities = ner.predict(original_sentence, labels=["Location", "Person"], threshold=0.5)
+    for sentence in tqdm(data.keys()):
+        with open("predicted_entities.txt", "a", encoding="utf-8") as f:
 
-        print(f"Original Sentence: {" ".join(data[sentence]['tokenized_text'])}")
-        print("Labelled Entities:")
-        print(data[sentence]["ner"])
-        print("Predicted Entities:")
-        for entity in entities:
-            print(f"[{entity['start']},  {entity['end']}, {entity['label']}] --> {entity['text']} score: {round(entity['score'], 2)}")
-        print("\n")
+            f.write(f"Processing sentence: {sentence}\n")
+            original_sentence = data[sentence]["original_sentence"]
+            entities = ner.predict(original_sentence, labels=["Location", "Person"], threshold=0.5)
+
+            f.write(f"Original Sentence: {" ".join(data[sentence]['tokenized_text'])}\n")
+            f.write("Labelled Entities:\n")
+            f.write(str(data[sentence]["ner"]))
+            f.write("\nPredicted Entities:\n")
+            for entity in entities:
+                start_char = entity['start']
+                end_char = entity['end']
+
+                # Map character positions to token indices
+                token_start, token_end = None, None
+                for i, token in enumerate(data[sentence]['tokenized_text']):
+                    token_index, token_text = token.split("_", 1)
+                    token_index = int(token_index)
+
+                    # Get start and end positions of token in original sentence
+                    token_char_start = original_sentence.find(token_text)
+                    token_char_end = token_char_start + len(token_text)
+
+                    if token_char_start <= start_char < token_char_end:
+                        token_start = token_index
+                    if token_char_start < end_char <= token_char_end:
+                        token_end = token_index
+
+                if token_start is not None and token_end is not None:
+                    f.write(f"[{token_start}, {token_end}, {entity['label']}] --> {entity['text']} score: {round(entity['score'], 2)}\n")
+                else:
+                    f.write(f"[?, ?, {entity['label']}] --> {entity['text']} score: {round(entity['score'], 2)} (Token index mapping failed)\n")
+
+            f.write("\n")
+            f.write("=" * 50 + "\n")
+            f.write("\n")
