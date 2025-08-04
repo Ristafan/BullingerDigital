@@ -1,8 +1,12 @@
+import glob
+import random
 import xml.etree.ElementTree as ET
 from typing import List, Union, Optional, Dict, Any
 import os
 import re
 import json
+
+from tqdm import tqdm
 
 
 class XMLDocumentParserForNer:
@@ -23,6 +27,8 @@ class XMLDocumentParserForNer:
         self.parsed_sentences = []  # List to store all parsed sentences
         self.summary_sentences = []  # List to store summary sentences
         self.body_sentences = []    # List to store body sentences
+        self.result = []  # List to store tokenized sentences with NER annotations
+        self.cleaned_sentences = []  # List to store cleaned sentences without NER tags
         self.namespace = namespace
         self.root = None
 
@@ -319,13 +325,13 @@ class XMLDocumentParserForNer:
         Returns:
             List of dictionaries with tokenized text and NER annotations
         """
-        result = []
+        self.result = []
 
         for sentence in self.parsed_sentences:
             tokenized_data = self._process_sentence_for_ner(sentence)
-            result.append(tokenized_data)
+            self.result.append(tokenized_data)
 
-        return result
+        return self.result
 
     def _process_sentence_for_ner(self, sentence: str) -> Dict[str, Any]:
         """
@@ -418,6 +424,12 @@ class XMLDocumentParserForNer:
 
             i += 1
 
+        # Recreate original sentence string without NER tags
+        stripped_tokens = [token for token in clean_tokens if token.strip()]
+        combined_tokens = ' '.join(clean_tokens)
+        self.cleaned_sentences.append(combined_tokens)
+
+
         return {
             "tokenized_text": clean_tokens,
             "ner": ner_annotations
@@ -444,8 +456,64 @@ class XMLDocumentParserForNer:
 if __name__ == "__main__":
     namespace = TEI_NAMESPACE = "http://www.tei-c.org/ns/1.0"
     xml_file_path = "G:/Meine Ablage/ILU/BullingerDigital/src/GLiNER/LettersOriginal/1.xml"
-    parser = XMLDocumentParserForNer(xml_file_path, namespace)
-    parser.print_parsed_content()
-    tokenized_data = parser.tokenize_and_extract_ner()
-    parser.save_tokenized_data_as_json("output.json")
+    train_data = []
+    skipped_files_counter = 0
+    skipped_files = []
 
+    new_path = "G:/Meine Ablage/ILU/NEW"
+    all_files = glob.glob(new_path + "/*.xml")
+    all_files_basename = [os.path.basename(file) for file in all_files]
+    num_relevant_sentences = 0
+    num_not_relevant_sentences = 0
+    training_sentences_and_annotations = {}
+    # skipped_sentences_and_annotations = {}  Not used in this version
+
+    rand = random.randint(0, 1)
+
+    for file in tqdm(glob.glob("G:/Meine Ablage/ILU/BullingerDigital/src/GLiNER/LettersOriginal/*.xml")):
+        basename = os.path.basename(file)
+
+        if basename in all_files_basename:
+            skipped_files.append(basename)
+            continue
+        #if rand == 1 and skipped_files_counter < 300:
+        #    skipped_files_counter += 1
+        #    skipped_files.append(basename)
+        #    continue
+
+        parser = XMLDocumentParserForNer(file, namespace)
+        # parser.print_parsed_content()
+        tokenized_data = parser.tokenize_and_extract_ner()
+
+        # Store the sentences and their annotations in a dictionary with numbering of the tokens
+        for idx, data in enumerate(tokenized_data):
+            training_sentences_and_annotations[f"{basename}_{idx}"] = {
+                "tokenized_text": [str(index) + "_" + token for index, token in enumerate(data["tokenized_text"])],  # Numbering of tokens for better readability
+                "ner": data["ner"],
+                "original_sentence": parser.cleaned_sentences[idx]
+            }
+
+        # Count number of sentences in the document
+        num_sentences = len(tokenized_data)
+
+        # Remove empty sentences and sentences that don't contain any NER annotations
+        tokenized_data = [data for data in tokenized_data if data["tokenized_text"] and data["ner"]]
+        train_data.extend(tokenized_data)
+
+        # Count remaining sentences
+        num_remaining_sentences = len(tokenized_data)
+        num_relevant_sentences += num_remaining_sentences
+        num_not_relevant_sentences += (num_sentences - num_remaining_sentences)
+
+    print(f"Skipped files list: {skipped_files}")
+    print(f"Skipped files: {skipped_files_counter}")
+    print(f"Total relevant sentences: {num_relevant_sentences}")
+    print(f"Total not relevant sentences: {num_not_relevant_sentences}")
+
+    # Save the tokenized data to a JSON file
+    with open("training1.json", 'w', encoding='utf-8') as f:
+        json.dump(train_data, f, ensure_ascii=False, indent=2)
+
+    # Save the training sentences and annotations to a JSON file
+    with open("training_sentences_and_annotations(1).json", 'w', encoding='utf-8') as f:
+        json.dump(training_sentences_and_annotations, f, ensure_ascii=False, indent=2)
