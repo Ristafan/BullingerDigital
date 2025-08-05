@@ -31,18 +31,29 @@ class AnnotatedLettersFinder:
 
 
 if __name__ == "__main__":
-    path_to_files = "G:/Meine Ablage/ILU/BullingerDigital/data/letters/*.xml"
-    training_folder = "G:/Meine Ablage/ILU/BullingerDigital/src/GLiNER/LettersOriginal"
+    path_to_files = "C:/Users/MartinFaehnrich/Documents/BullingerDigi/data/letters/*.xml"
+    training_folder = "C:/Users/MartinFaehnrich/Documents/BullingerDigi/src/GLiNER/LettersOriginal"
     files = glob.glob(path_to_files)
 
     finder = AnnotatedLettersFinder()
 
     for file in tqdm(files, unit=" Files"):
-        source = finder.parse_source(file)
+        try:
+            source = finder.parse_source(file)
+        except ET.ParseError:
+            print(f"Error parsing file: {file}")
+            continue
 
-        if source == "TUSTEP":
+        if source == "keine":
+            continue
+        elif source == "HTR":
+            continue
+        else:
             finder.move_file_to_training_folder(file, training_folder)
 
     print("Files parsed:", finder.files_parsed)
     print("Files moved:", finder.files_moved)
     print("Labels found:", finder.source_labels)
+
+# If the directory needs to be cleaned up, rin the following command in the Windows terminal:
+# rmdir /S /Q "path_to_directory"
