@@ -69,6 +69,78 @@ class ResultComparer:
         self._print_results()
         return self.sentence_results, dict(self.file_results), self.testset_results
 
+    def convert_char_span_to_token_span(self, char_start, char_end, original_sentence, tokenized_sentence):
+        """Convert character-based span to token-based span."""
+        # Build character position mapping
+        char_to_token = {}
+        current_char_pos = 0
+
+        for token_idx, token in enumerate(tokenized_sentence):
+            # Map each character in this token to the token index
+            for char_in_token in range(len(token)):
+                if current_char_pos + char_in_token < len(original_sentence.replace(" ", "")):
+                    char_to_token[current_char_pos + char_in_token] = token_idx
+
+            current_char_pos += len(token)
+            # Skip space character mapping (spaces separate tokens)
+
+        # Alternative approach: reconstruct the original sentence and map positions
+        reconstructed = ""
+        char_positions = []  # Maps each character position to token index
+
+        for token_idx, token in enumerate(tokenized_sentence):
+            if token_idx > 0:
+                char_positions.append(-1)  # Space character
+                reconstructed += " "
+
+            for _ in token:
+                char_positions.append(token_idx)
+            reconstructed += token
+
+        # Find token boundaries for the character span
+        if char_start >= len(char_positions) or char_end >= len(char_positions):
+            # Invalid span, return original (might be already token-based)
+            return None
+
+        start_token = char_positions[char_start] if char_start < len(char_positions) else None
+        end_token = char_positions[char_end] if char_end < len(char_positions) else None
+
+        if start_token is None or end_token is None or start_token == -1 or end_token == -1:
+            # Span starts/ends in a space or invalid position
+            return None
+
+        return [start_token, end_token]
+
+    def fix_char_based_predictions(self, entities, original_sentence, tokenized_sentence, max_token_span=5):
+        """Fix predictions that use character spans instead of token spans."""
+        fixed_entities = []
+
+        for entity in entities:
+            start, end, entity_type = entity
+
+            # Check if this looks like a character span (large span or suspicious range)
+            span_length = end - start + 1
+
+            if span_length > max_token_span or end >= len(tokenized_sentence):
+                # This looks like a character-based span, try to convert
+                converted_span = self.convert_char_span_to_token_span(
+                    start, end, original_sentence, tokenized_sentence
+                )
+
+                if converted_span is not None:
+                    start_token, end_token = converted_span
+                    fixed_entities.append([start_token, end_token, entity_type])
+                    # print(f"Fixed char span [{start}, {end}] -> token span [{start_token}, {end_token}] for '{entity_type}'")
+                else:
+                    # Could not convert, keep original but mark as suspicious
+                    print(f"Warning: Could not convert suspicious span [{start}, {end}] for '{entity_type}' - keeping original")
+                    fixed_entities.append(entity)
+            else:
+                # Normal token-based span
+                fixed_entities.append(entity)
+
+        return fixed_entities
+
     def read_labels_and_predictions(self):
         """Read and parse the labels JSON file."""
         with open(self.predictions_and_labels_json, 'r', encoding="utf-8") as file:
@@ -76,16 +148,22 @@ class ResultComparer:
 
         for sentence in sentences:
             filename_and_sentence_idx = sentence["sentence_pair"]
-            tokenized_sentence = sentence["original_sentence"].split(" ")
+            original_sentence = sentence["original_sentence"]
+            tokenized_sentence = original_sentence.split(" ")
             labelled_entities = sentence["labelled_entities"]
             entities = sentence["entities"]
+
+            # Fix character-based predictions
+            fixed_entities = self.fix_char_based_predictions(
+                entities, original_sentence, tokenized_sentence
+            )
 
             # Store tokenized sentences
             self.tokenized_sentences[filename_and_sentence_idx] = tokenized_sentence
             # Store labels
             self.labels[filename_and_sentence_idx] = labelled_entities
-            # Store predictions
-            self.predictions[filename_and_sentence_idx] = entities
+            # Store predictions (now fixed)
+            self.predictions[filename_and_sentence_idx] = fixed_entities
 
     def count_exact_mismatches(self, predicted_entities, label_entities):
         """Count mismatches with exact token position matching."""
