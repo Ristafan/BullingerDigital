@@ -13,13 +13,13 @@ os.environ["TOKENIZERS_PARALLELISM"] = "true"
 
 print("GLiNER FineTuner")
 
-train_path = "training.json"
+train_path = "training_with_ids.json"
 
 with open(train_path, "r", encoding="utf-8") as f:
     data = json.load(f)
 
 print('Dataset size:', len(data))
-print(data[1])  # Display the first item in the dataset to understand its structure
+print(data[0])  # Display the first item in the dataset to understand its structure
 
 random.shuffle(data)
 print('Dataset is shuffled...')
@@ -33,7 +33,7 @@ device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('
 
 model = GLiNER.from_pretrained("knowledgator/gliner-x-large")
 
-# use it for better performance, it mimics original implementation but it's less memory efficient
+# use it for better performance, it mimics original implementation, but it's less memory efficient
 data_collator = DataCollator(model.config, data_processor=model.data_processor, prepare_labels=True)
 
 # Optional: compile model for faster training
