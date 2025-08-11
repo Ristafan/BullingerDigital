@@ -535,7 +535,7 @@ if __name__ == "__main__":
         num_sentences = len(tokenized_data)
 
         # Remove empty sentences and sentences that don't contain any NER annotations
-        #tokenized_data = [data for data in tokenized_data if data["tokenized_text"] and data["ner"]]
+        tokenized_data = [data for data in tokenized_data if data["tokenized_text"] and data["ner"]]
         train_data.extend(tokenized_data)
 
         # Count remaining sentences
