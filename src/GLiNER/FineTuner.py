@@ -9,6 +9,14 @@ from gliner.data_processing.collator import DataCollatorWithPadding, DataCollato
 from gliner.utils import load_config_as_namespace
 from gliner.data_processing import WordsSplitter, GLiNERDataset
 
+print(f"PyTorch version: {torch.__version__}")
+print(f"CUDA available: {torch.cuda.is_available()}")
+print(f"CUDA version: {torch.version.cuda}")
+print(f"GPU count: {torch.cuda.device_count()}")
+if torch.cuda.is_available():
+    print(f"GPU name: {torch.cuda.get_device_name(0)}")
+
+os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
 os.environ["TOKENIZERS_PARALLELISM"] = "true"
 
 print("GLiNER FineTuner")
@@ -29,20 +37,21 @@ test_dataset = data[int(len(data)*0.9):]
 
 print('Dataset is splitted...')
 
-device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
+# device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+# print(device)
 
-model = GLiNER.from_pretrained("knowledgator/gliner-x-large")
+model = GLiNER.from_pretrained("urchade/gliner_multi-v2.1")
 
 # use it for better performance, it mimics original implementation, but it's less memory efficient
 data_collator = DataCollator(model.config, data_processor=model.data_processor, prepare_labels=True)
 
 # Optional: compile model for faster training
-model.to(device)
-print("model to device done")
+# model.to(device)
+# print("model to device done")
 
 # calculate number of epochs
 num_steps = 500
-batch_size = 8
+batch_size = 4
 data_size = len(train_dataset)
 num_batches = data_size // batch_size
 num_epochs = max(1, num_steps // num_batches)
