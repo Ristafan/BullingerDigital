@@ -32,6 +32,7 @@ class XMLDocumentParserForNer:
         self.cleaned_sentences = []  # List to store cleaned sentences without NER tags
         self.namespace = namespace
         self.root = None
+        self.origin_types = []
 
         if xml_file_path:
             self.load_from_file(xml_file_path)
@@ -105,6 +106,10 @@ class XMLDocumentParserForNer:
                 # Parse the <p> element similar to <s> sections
                 sentences = self._parse_paragraph_element(p_element)
                 self.summary_sentences.extend(sentences)
+                # Add 'summary' origin for each sentence
+                print(sentences)
+                for _ in sentences:
+                    self.origin_types.append('summary')
 
     def _parse_body(self) -> None:
         """
@@ -120,7 +125,8 @@ class XMLDocumentParserForNer:
         div_tag = f".//{{{self.namespace}}}div" if self.namespace else './/div'
         div_elements = body_element.findall(div_tag)
         if not div_elements:
-            raise ValueError("No <div> elements found in <body>")
+            print("No <div> elements found in <body>, skipping body parsing.")
+            return
 
         for div_element in div_elements:
             # Find all <p> elements within each div
@@ -139,6 +145,39 @@ class XMLDocumentParserForNer:
                 for s_element in s_elements:
                     sentences = self.parse_section(s_element)
                     self.body_sentences.extend(sentences)
+                    # Add origin types for each sentence (body or footnote)
+                    for sentence in sentences:
+                        origin = self._determine_sentence_origin(sentence, s_element)
+                        self.origin_types.append(origin)
+
+    def _determine_sentence_origin(self, sentence: str, s_element: ET.Element) -> str:
+        """
+        Determine if a sentence is from body text or footnote based on its content or structure.
+
+        Args:
+            sentence: The sentence text
+            s_element: The XML element containing the sentence
+
+        Returns:
+            'body' or 'footnote'
+        """
+        # Check if the sentence came from a <note> element (footnote)
+        # This is determined by checking if we have note content
+        # Since notes are processed separately in parse_section, we can check
+        # if this sentence was extracted as a note
+
+        # Look for <note> elements in the parent structure
+        note_tag = f".//{{{self.namespace}}}note" if self.namespace else './/note'
+        note_elements = s_element.findall(note_tag)
+
+        # If this sentence contains content that matches note text, it's a footnote
+        for note_elem in note_elements:
+            note_text = self._get_element_text(note_elem).strip()
+            if note_text and note_text in sentence:
+                return 'footnote'
+
+        # Default to body if not identified as footnote
+        return 'body'
 
     def _parse_paragraph_element(self, p_element: ET.Element) -> List[str]:
         """
@@ -266,13 +305,12 @@ class XMLDocumentParserForNer:
             Annotated text string
         """
         # Append reference ID to entity type if it exists
-        full_entity_type = f"{entity_type}{ref_id}" if ref_id else entity_type
 
         words = text.split()
         if len(words) == 1:
-            return f"single{full_entity_type}{words[0]}"
+            return f"single{entity_type}{words[0]}"
         else:
-            annotated_text = f"start{full_entity_type}{words[0]} {' '.join(words[1:-1])} end{full_entity_type}{words[-1]}" if len(words) > 1 else f"start{full_entity_type}{words[0]} end{full_entity_type}{words[0]}"
+            annotated_text = f"start{entity_type}{words[0]} {' '.join(words[1:-1])} end{entity_type}{words[-1]}" if len(words) > 1 else f"start{entity_type}{words[0]} end{entity_type}{words[0]}"
             # Clean up extra spaces
             return ' '.join(annotated_text.split())
 
@@ -325,7 +363,7 @@ class XMLDocumentParserForNer:
 
         print(f"\nTOTAL SENTENCES: {len(self.parsed_sentences)}")
 
-    def tokenize_and_extract_ner(self) -> List[Dict[str, Any]]:
+    def tokenize_and_extract_ner(self):
         """
         Tokenize all parsed sentences and extract NER information.
 
@@ -338,7 +376,7 @@ class XMLDocumentParserForNer:
             tokenized_data = self._process_sentence_for_ner(sentence)
             self.result.append(tokenized_data)
 
-        return self.result
+        return self.result, self.origin_types
 
     def _process_sentence_for_ner(self, sentence: str) -> Dict[str, Any]:
         """
@@ -506,29 +544,30 @@ if __name__ == "__main__":
     # skipped_sentences_and_annotations = {}  Not used in this version
     randomly_skipped_files = []
 
-    for file in tqdm(glob.glob("C:/Users/MartinFaehnrich/Documents/BullingerDigi/src/GLiNER/LettersOriginal/*.xml")):
+    for file in tqdm(glob.glob("C:/Users/MartinFaehnrich/Documents/BullingerDigi/src/GLiNER/LettersTesting/*.xml")):
         basename = os.path.basename(file)
 
-        rand = random.randint(0, 1)
+        #rand = random.randint(0, 1)
 
-        if basename in no_training_files_basename:
-            skipped_files.append(basename)
-            continue
-        elif rand == 1 and skipped_files_counter < 300:
-            skipped_files_counter += 1
-            skipped_files.append(basename)
-            continue
+        #if basename not in no_training_files_basename:
+        #    skipped_files.append(basename)
+        #    continue
+        #elif rand == 1 and skipped_files_counter < 300:
+        #    skipped_files_counter += 1
+        #    skipped_files.append(basename)
+        #    continue
 
         parser = XMLDocumentParserForNer(file, namespace)
         # parser.print_parsed_content()
-        tokenized_data = parser.tokenize_and_extract_ner()
+        tokenized_data, origin_types = parser.tokenize_and_extract_ner()
 
-        # Store the sentences and their annotations in a dictionary with numbering of the tokens
-        for idx, data in enumerate(tokenized_data):
-            training_sentences_and_annotations[f"{basename}_{idx}"] = {
+        # Store the sentences and their annotations in a dictionary with numbering of the tokens as well as if it is from the summary or body or footnotes
+        for idx, (data, origin) in enumerate(zip(tokenized_data, origin_types)):
+            training_sentences_and_annotations[f"{basename}_{idx}_{origin}"] = {
                 "tokenized_text": [str(index) + "_" + token for index, token in enumerate(data["tokenized_text"])],  # Numbering of tokens for better readability
                 "ner": data["ner"],
-                "original_sentence": parser.cleaned_sentences[idx]
+                "original_sentence": parser.cleaned_sentences[idx],
+                "origin": origin
             }
 
         # Count number of sentences in the document
@@ -549,9 +588,9 @@ if __name__ == "__main__":
     print(f"Total not relevant sentences: {num_not_relevant_sentences}")
 
     # Save the tokenized data to a JSON file
-    with open("training_with_ids.json", 'w', encoding='utf-8') as f:
+    with open("test_final.json", 'w', encoding='utf-8') as f:
         json.dump(train_data, f, ensure_ascii=False, indent=2)
 
     # Save the training sentences and annotations to a JSON file
-    with open("readable_sentences_and_annotations_with_ids.json", 'w', encoding='utf-8') as f:
+    with open("test_final_sentences_and_annotations.json", 'w', encoding='utf-8') as f:
         json.dump(training_sentences_and_annotations, f, ensure_ascii=False, indent=2)
