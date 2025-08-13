@@ -71,43 +71,19 @@ class ResultComparer:
 
     def convert_char_span_to_token_span(self, char_start, char_end, original_sentence, tokenized_sentence):
         """Convert character-based span to token-based span."""
-        # Build character position mapping
-        char_to_token = {}
-        current_char_pos = 0
+        substring_of_sentence = original_sentence[char_start:char_end]
 
-        for token_idx, token in enumerate(tokenized_sentence):
-            # Map each character in this token to the token index
-            for char_in_token in range(len(token)):
-                if current_char_pos + char_in_token < len(original_sentence.replace(" ", "")):
-                    char_to_token[current_char_pos + char_in_token] = token_idx
+        # If substring is made up of multiple words, we need to handle it carefully
+        if len(substring_of_sentence.split(' ')) > 1:
+            tokens = substring_of_sentence.split(' ')
 
-            current_char_pos += len(token)
-            # Skip space character mapping (spaces separate tokens)
+            if tokens[0] in tokenized_sentence:
+                start_token = tokenized_sentence.index(tokens[0])
+                end_token = start_token + len(tokens) - 1
 
-        # Alternative approach: reconstruct the original sentence and map positions
-        reconstructed = ""
-        char_positions = []  # Maps each character position to token index
-
-        for token_idx, token in enumerate(tokenized_sentence):
-            if token_idx > 0:
-                char_positions.append(-1)  # Space character
-                reconstructed += " "
-
-            for _ in token:
-                char_positions.append(token_idx)
-            reconstructed += token
-
-        # Find token boundaries for the character span
-        if char_start >= len(char_positions) or char_end >= len(char_positions):
-            # Invalid span, return original (might be already token-based)
-            return None
-
-        start_token = char_positions[char_start] if char_start < len(char_positions) else None
-        end_token = char_positions[char_end] if char_end < len(char_positions) else None
-
-        if start_token is None or end_token is None or start_token == -1 or end_token == -1:
-            # Span starts/ends in a space or invalid position
-            return None
+        if substring_of_sentence in tokenized_sentence:
+            start_token = tokenized_sentence.index(substring_of_sentence)
+            end_token = start_token + substring_of_sentence.count(' ')
 
         return [start_token, end_token]
 
@@ -152,6 +128,16 @@ class ResultComparer:
             tokenized_sentence = original_sentence.split(" ")
             labelled_entities = sentence["labelled_entities"]
             entities = sentence["entities"]
+
+            # Correct labels and entities format
+            for e in labelled_entities:
+                if e[2].startswith("person"):
+                    e[2] = "person"
+                elif e[2].startswith("location"):
+                    e[2] = "location"
+
+            entities = [[e['start'], e['end'], e['label']] for e in entities]
+
 
             # Fix character-based predictions
             fixed_entities = self.fix_char_based_predictions(
@@ -475,9 +461,25 @@ class ResultComparer:
         print(f"  Recall: {testset_location_metrics['recall']:.3f}")
         print(f"  F1-Score: {testset_location_metrics['f1']:.3f}")
 
-        print(f"\nTop Additional Entities: {dict(Counter(self.testset_results['additional_entities']).most_common(20))}")
-        print(f"Top Missed Entities: {dict(Counter(self.testset_results['missed_entities']).most_common(20))}")
-        print(f"Top Correct Entities: {dict(Counter(self.testset_results['correct_entities']).most_common(20))}")
+        # Top entities
+        print("\n")
+        print("TOP ENTITIES:")
+        print("-" * 40)
+        top_additional_entities = dict(Counter(self.testset_results['additional_entities']).most_common(200))
+        top_missed_entities = dict(Counter(self.testset_results['missed_entities']).most_common(200))
+        top_correct_entities = dict(Counter(self.testset_results['correct_entities']).most_common(200))
+
+        print("Top Additional Entities:")
+        for entity in top_additional_entities:
+            print(f"  {entity}: {top_additional_entities[entity]}")
+
+        print("\nTop Missed Entities:")
+        for entity in top_missed_entities:
+            print(f"  {entity}: {top_missed_entities[entity]}")
+
+        print("\nTop Correct Entities:")
+        for entity in top_correct_entities:
+            print(f"  {entity}: {top_correct_entities[entity]}")
 
         # File level summary
         print(f"\nFILE LEVEL SUMMARY:")
@@ -644,15 +646,15 @@ class ResultComparer:
 
 if __name__ == "__main__":
     # Usage examples:
-    evaluator = ResultComparer('test_predicted_entities.json')
+    evaluator = ResultComparer('predicted_entities_final.json')
     sentence_results, file_results, testset_results = evaluator.evaluate()
 
     # View colored sentences in different ways:
-    evaluator.print_colored_sentences(5)  # Console display
-    evaluator.save_colored_sentences_html("results.html", 20936)  # Save to HTML file
+    #evaluator.print_colored_sentences(5)  # Console display
+    evaluator.save_colored_sentences_html("results.html", 10000)  # Save to HTML file
     html_content = evaluator.display_colored_sentences_html(10)  # Get HTML string
 
     # Get detailed metrics:
-    evaluator.print_detailed_file_metrics()  # All files
+    #evaluator.print_detailed_file_metrics()  # All files
     file_metric = evaluator.get_file_metrics("1.xml")  # Specific file
     all_metrics = evaluator.get_file_metrics()  # All files as dict
