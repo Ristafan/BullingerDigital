@@ -33,6 +33,11 @@ class ResultComparer:
         print("Starting evaluation...")
 
         for filename_and_sentence_idx in self.tokenized_sentences.keys():
+            if filename_and_sentence_idx.endswith('body'):
+                pass
+            else:
+                continue
+
             label_entities = self.labels[filename_and_sentence_idx]
             predicted_entities = self.predictions[filename_and_sentence_idx]
             tokenized_sentence = self.tokenized_sentences[filename_and_sentence_idx]
