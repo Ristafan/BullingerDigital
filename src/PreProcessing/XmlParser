@@ -225,18 +225,18 @@ class XmlParser:
 
 
 if __name__ == "__main__":
-    folder_path = "G:/Meine Ablage/ILU/OLD"
+    folder_path = "C:/Users/MartinFaehnrich/Documents/BullingerDigi/data/letters"
     filepath = "G:/Meine Ablage/ILU/OLD/1_OLD.xml"
 
     all_files = glob.glob(folder_path + "/*.xml")
 
-    #for file in all_files:
-    #    print(f"Processing file: {file}")
-    #    parser = XmlParser()
-    #    pers_names_summary, place_names_summary, pers_names_body, place_names_body = parser.parse_xml(file)
-    #    # parser.print_content()
-    #    parser.save_entities_as_json(file)
+    for file in all_files:
+        print(f"Processing file: {file}")
+        parser = XmlParser()
+        pers_names_summary, place_names_summary, pers_names_body, place_names_body = parser.parse_xml(file)
+        # parser.print_content()
+        parser.save_entities_as_json(file)
 
-    files = glob.glob("G:/Meine Ablage/ILU/BullingerDigital/src/PreProcessing/Entities/*_entities.json")
-    parser = XmlParser()
-    parser.json_files_to_csv(files)
+    # files = glob.glob("G:/Meine Ablage/ILU/BullingerDigital/src/PreProcessing/Entities/*_entities.json")
+    # parser = XmlParser()
+    # parser.json_files_to_csv(files)
