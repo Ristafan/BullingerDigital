@@ -107,7 +107,6 @@ class XMLDocumentParserForNer:
                 sentences = self._parse_paragraph_element(p_element)
                 self.summary_sentences.extend(sentences)
                 # Add 'summary' origin for each sentence
-                print(sentences)
                 for _ in sentences:
                     self.origin_types.append('summary')
 
@@ -394,7 +393,6 @@ class XMLDocumentParserForNer:
         """
         # First tokenize the sentence as-is (with NER tags)
         tokens = re.findall(r'\w+(?:[-_]\w+)*|\S', sentence)
-        print(f"Tokens extracted: {tokens}")
 
         # Extract NER information from the tokens
         ner_annotations = []
@@ -627,8 +625,6 @@ if __name__ == "__main__":
 
     for file in tqdm(glob.glob("C:/Users/MartinFaehnrich/Documents/BullingerDigi/src/GLiNER/LettersTesting/*.xml")):
         basename = os.path.basename(file)
-        if not basename.startswith("1012.xml"):
-            continue
 
         #rand = random.randint(0, 1)
 
