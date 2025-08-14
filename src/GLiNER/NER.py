@@ -12,7 +12,7 @@ from gliner.model import GLiNER
 
 
 class NER:
-    def __init__(self, model_path="models/checkpoint-6200"):
+    def __init__(self, model_path="models_01/checkpoint-6200"):
         self.model = GLiNER.from_pretrained(model_path)
 
     def predict(self, text, labels=["Location", "Person"], threshold=0.5):
@@ -113,7 +113,7 @@ if __name__ == "__main__":
     all_predicted_entities = []
 
     # Load the data from the JSON file
-    with open("training_sentences_and_annotations(1).json", "r", encoding="utf-8") as f:
+    with open("test_final_sentences_and_annotations.json", "r", encoding="utf-8") as f:
         data = json.load(f)
 
     # Initialize the NER model
@@ -133,7 +133,7 @@ if __name__ == "__main__":
 
     # Save all predicted entities to a JSON file
     print("Saving predicted entities to JSON file", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-    with open("predicted_entities.json", "a", encoding="utf-8") as f:
+    with open("predicted_entities_final.json", "a", encoding="utf-8") as f:
         json.dump(all_predicted_entities, f, ensure_ascii=False, indent=4)
 
     # Save meta information to an Excel file
