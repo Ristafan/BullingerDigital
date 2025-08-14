@@ -302,17 +302,21 @@ class XMLDocumentParserForNer:
             ref_id: Reference ID from the XML attribute (optional)
 
         Returns:
-            Annotated text string
+            Annotated text string with proper token separation
         """
-        # Append reference ID to entity type if it exists
+        # First, tokenize the text using the same regex as used later
+        tokens = re.findall(r'\w+(?:[-_]\w+)*|\S', text)
+        ref_suffix = ref_id if ref_id else ''
 
-        words = text.split()
-        if len(words) == 1:
-            return f"single{entity_type}{words[0]}"
+        if len(tokens) == 1:
+            return f"single{entity_type}{ref_suffix} {tokens[0]}"
         else:
-            annotated_text = f"start{entity_type}{words[0]} {' '.join(words[1:-1])} end{entity_type}{words[-1]}" if len(words) > 1 else f"start{entity_type}{words[0]} end{entity_type}{words[0]}"
-            # Clean up extra spaces
-            return ' '.join(annotated_text.split())
+            start_tag = f"start{entity_type}{ref_suffix}"
+            end_tag = f"end{entity_type}{ref_suffix}"
+
+            # Insert start tag before first token and end tag before last token
+            result_tokens = [start_tag] + tokens[:-1] + [end_tag, tokens[-1]]
+            return ' '.join(result_tokens)
 
     def get_all_sentences(self) -> List[str]:
         """
@@ -390,67 +394,74 @@ class XMLDocumentParserForNer:
         """
         # First tokenize the sentence as-is (with NER tags)
         tokens = re.findall(r'\w+(?:[-_]\w+)*|\S', sentence)
+        print(f"Tokens extracted: {tokens}")
 
         # Extract NER information from the tokens
         ner_annotations = []
         clean_tokens = []
-        token_idx = 0
 
         i = 0
         while i < len(tokens):
             token = tokens[i]
 
             # Check if this token is a NER tag
-            if token.startswith(('startPers', 'endPers', 'singlePers', 'startPlace', 'endPlace', 'singlePlace')):
-                # Extract the tag type, reference ID, and word
-                tag_type, entity_type, ref_id, word = self._parse_ner_token(token)
+            if self._is_ner_tag(token):
+                tag_info = self._parse_ner_tag(token)
 
-                # Add the word to clean tokens
-                clean_tokens.append(word)
+                if tag_info['tag_type'] == 'single':
+                    # Single word entity - next token is the word
+                    if i + 1 < len(tokens) and not self._is_ner_tag(tokens[i + 1]):
+                        word = tokens[i + 1]
+                        clean_tokens.append(word)
+                        start_idx = len(clean_tokens) - 1
+                        ner_annotations.append([start_idx, start_idx, tag_info['entity_type']])
+                        i += 2  # Skip both the tag and the word
+                    else:
+                        i += 1  # Just skip the malformed tag
 
-                # Create full entity type with reference ID
-                full_entity_type = f"{entity_type}{ref_id}" if ref_id else entity_type
+                elif tag_info['tag_type'] == 'start':
+                    # Multi-word entity - find corresponding end tag
+                    start_idx = len(clean_tokens)
+                    entity_tokens = []
 
-                # Handle different tag types
-                if tag_type.startswith('single'):
-                    # Single word entity
-                    ner_annotations.append([token_idx, token_idx, full_entity_type])
-                elif tag_type.startswith('start'):
-                    # Find the corresponding end tag
-                    start_pos = token_idx
-                    end_pos = start_pos
-
-                    # Look ahead for the end tag
+                    # Collect tokens until we find the end tag
                     j = i + 1
+                    found_end = False
                     while j < len(tokens):
-                        next_token = tokens[j]
-                        expected_end = f"end{'Pers' if 'Pers' in tag_type else 'Place'}"
-
-                        if next_token.startswith(expected_end):
-                            # Found the end tag, extract its word (and reference ID should match)
-                            _, _, _, end_word = self._parse_ner_token(next_token)
-                            clean_tokens.append(end_word)
-                            end_pos = token_idx
-                            i = j  # Skip to after the end tag
+                        if self._is_end_tag(tokens[j], tag_info['entity_base']):
+                            # Found end tag, next token should be the last word
+                            if j + 1 < len(tokens) and not self._is_ner_tag(tokens[j + 1]):
+                                entity_tokens.append(tokens[j + 1])
+                                j += 2  # Skip end tag and its word
+                            else:
+                                j += 1  # Just skip the end tag
+                            found_end = True
                             break
+                        elif not self._is_ner_tag(tokens[j]):
+                            # Regular token that's part of the entity
+                            entity_tokens.append(tokens[j])
+                            j += 1
                         else:
-                            # Regular token between start and end
-                            clean_tokens.append(next_token)
-                            token_idx += 1
-                        j += 1
+                            # Unexpected tag, break
+                            break
 
-                    ner_annotations.append([start_pos, end_pos + 1, full_entity_type])
+                    # Add all entity tokens to clean tokens
+                    clean_tokens.extend(entity_tokens)
 
-                token_idx += 1
+                    if entity_tokens and found_end:
+                        end_idx = len(clean_tokens) - 1
+                        ner_annotations.append([start_idx, end_idx, tag_info['entity_type']])
+
+                    i = j  # Continue from after the end tag
+                else:
+                    # Skip orphaned end tags or unknown tags
+                    i += 1
             else:
-                # Regular token, just add it
+                # Regular token
                 clean_tokens.append(token)
-                token_idx += 1
-
-            i += 1
+                i += 1
 
         # Recreate original sentence string without NER tags
-        stripped_tokens = [token for token in clean_tokens if token.strip()]
         combined_tokens = ' '.join(clean_tokens)
         self.cleaned_sentences.append(combined_tokens)
 
@@ -458,6 +469,76 @@ class XMLDocumentParserForNer:
             "tokenized_text": clean_tokens,
             "ner": ner_annotations
         }
+
+    def _is_ner_tag(self, token: str) -> bool:
+        """Check if a token is a NER tag."""
+        return token.startswith(('startPers', 'endPers', 'singlePers', 'startPlace', 'endPlace', 'singlePlace'))
+
+
+    def _is_end_tag(self, token: str, entity_base: str) -> bool:
+        """Check if a token is the corresponding end tag for an entity."""
+        return token.startswith(f"end{entity_base}")
+
+
+    def _parse_ner_tag(self, token: str) -> Dict[str, str]:
+        """
+        Parse a NER tag to extract information.
+
+        Args:
+            token: NER tag like 'startPersp1283' or 'singlePlace'
+
+        Returns:
+            Dictionary with tag information
+        """
+        if token.startswith('startPers'):
+            return {
+                'tag_type': 'start',
+                'entity_base': 'Pers',
+                'entity_type': 'person',
+                'ref_id': token[9:] if len(token) > 9 else ''
+            }
+        elif token.startswith('endPers'):
+            return {
+                'tag_type': 'end',
+                'entity_base': 'Pers',
+                'entity_type': 'person',
+                'ref_id': token[7:] if len(token) > 7 else ''
+            }
+        elif token.startswith('singlePers'):
+            return {
+                'tag_type': 'single',
+                'entity_base': 'Pers',
+                'entity_type': 'person',
+                'ref_id': token[10:] if len(token) > 10 else ''
+            }
+        elif token.startswith('startPlace'):
+            return {
+                'tag_type': 'start',
+                'entity_base': 'Place',
+                'entity_type': 'location',
+                'ref_id': token[10:] if len(token) > 10 else ''
+            }
+        elif token.startswith('endPlace'):
+            return {
+                'tag_type': 'end',
+                'entity_base': 'Place',
+                'entity_type': 'location',
+                'ref_id': token[8:] if len(token) > 8 else ''
+            }
+        elif token.startswith('singlePlace'):
+            return {
+                'tag_type': 'single',
+                'entity_base': 'Place',
+                'entity_type': 'location',
+                'ref_id': token[11:] if len(token) > 11 else ''
+            }
+        else:
+            return {
+                'tag_type': 'unknown',
+                'entity_base': '',
+                'entity_type': '',
+                'ref_id': ''
+            }
 
     def _parse_ner_token(self, token: str) -> tuple[str, str, str, str]:
         """
@@ -546,6 +627,8 @@ if __name__ == "__main__":
 
     for file in tqdm(glob.glob("C:/Users/MartinFaehnrich/Documents/BullingerDigi/src/GLiNER/LettersTesting/*.xml")):
         basename = os.path.basename(file)
+        if not basename.startswith("1012.xml"):
+            continue
 
         #rand = random.randint(0, 1)
 
