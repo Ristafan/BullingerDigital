@@ -39,6 +39,35 @@ class NER:
 
         return token_start, token_end
 
+    def remove_irrelevant_entities(self, entities):
+        for entity in entities:
+            # Remove entities that are lowercase
+            if entity['text'].islower():
+                print(f"Entity removed: {entity['text']}")
+                entities.remove(entity)
+                continue
+            # Remove entities that are single or two characters long
+            if len(entity['text']) <= 2:
+                print(f"Entity removed: {entity['text']}")
+                entities.remove(entity)
+                continue
+
+            # Remove specific irrelevant entities
+            if entity['text'] in ["", " ", "?", "!", ":", ";", ",", ".", "-", "_"]:
+                print(f"Entity removed: {entity['text']}")
+                entities.remove(entity)
+                continue
+            if entity['text'].lower() == "vale":
+                print(f"Entity removed: {entity['text']}")
+                entities.remove(entity)
+                continue
+            if entity['text'].lower() == "rande":
+                print(f"Entity removed: {entity['text']}")
+                entities.remove(entity)
+                continue
+
+        return entities
+
     @staticmethod
     def save_to_txt(sentence_pair, data, entities):
         with open("predicted_entities.txt", "a", encoding="utf-8") as f:
@@ -125,19 +154,21 @@ if __name__ == "__main__":
         original_sentence = data[sentence_pair]["original_sentence"]
         entities = ner.predict(original_sentence, labels=["Location", "Person"], threshold=0.5)
 
+        cleaned_entities = ner.remove_irrelevant_entities(entities)
+
         # Save the results to a text file
-        ner.save_to_txt(sentence_pair, data, entities)
+        #ner.save_to_txt(sentence_pair, data, cleaned_entities)
 
         # Save the results to later use in a JSON file
         all_predicted_entities.append(ner.convert_to_json_format(sentence_pair, original_sentence, entities))
 
     # Save all predicted entities to a JSON file
     print("Saving predicted entities to JSON file", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-    with open("predicted_entities_final.json", "a", encoding="utf-8") as f:
+    with open("predicted_entities_final_removed_unnecessary.json", "a", encoding="utf-8") as f:
         json.dump(all_predicted_entities, f, ensure_ascii=False, indent=4)
 
     # Save meta information to an Excel file
-    print("Saving meta information to Excel file", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-    ner.save_meta_information_to_excel(all_predicted_entities)
+    #print("Saving meta information to Excel file", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    #ner.save_meta_information_to_excel(all_predicted_entities)
 
 
