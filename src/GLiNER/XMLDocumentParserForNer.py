@@ -1,7 +1,6 @@
 import glob
-import random
 import xml.etree.ElementTree as ET
-from typing import List, Union, Optional, Dict, Any
+from typing import List, Optional, Dict, Any
 import os
 import re
 import json
@@ -608,33 +607,15 @@ class XMLDocumentParserForNer:
 # Example usage and test cases
 if __name__ == "__main__":
     namespace = TEI_NAMESPACE = "http://www.tei-c.org/ns/1.0"
-    xml_file_path = "G:/Meine Ablage/ILU/BullingerDigital/src/GLiNER/LettersOriginal/1.xml"
+    xml_file_path = "" + "/*.xml"  # Replace with your XML file path
     train_data = []
-    skipped_files_counter = 0
-    skipped_files = []
-    not_skipped_files = []
 
-    new_path = "D:/ILU/NEW"
-    no_training_files = glob.glob(new_path + "/*.xml")
-    no_training_files_basename = [os.path.basename(file) for file in no_training_files]
     num_relevant_sentences = 0
     num_not_relevant_sentences = 0
     training_sentences_and_annotations = {}
-    # skipped_sentences_and_annotations = {}  Not used in this version
-    randomly_skipped_files = []
 
     for file in tqdm(glob.glob("C:/Users/MartinFaehnrich/Documents/BullingerDigi/src/GLiNER/LettersTesting/*.xml")):
         basename = os.path.basename(file)
-
-        #rand = random.randint(0, 1)
-
-        #if basename not in no_training_files_basename:
-        #    skipped_files.append(basename)
-        #    continue
-        #elif rand == 1 and skipped_files_counter < 300:
-        #    skipped_files_counter += 1
-        #    skipped_files.append(basename)
-        #    continue
 
         parser = XMLDocumentParserForNer(file, namespace)
         # parser.print_parsed_content()
@@ -661,15 +642,13 @@ if __name__ == "__main__":
         num_relevant_sentences += num_remaining_sentences
         num_not_relevant_sentences += (num_sentences - num_remaining_sentences)
 
-    print(f"Skipped files list: {skipped_files}")
-    print(f"Skipped files: {skipped_files_counter}")
     print(f"Total relevant sentences: {num_relevant_sentences}")
     print(f"Total not relevant sentences: {num_not_relevant_sentences}")
 
     # Save the tokenized data to a JSON file
-    with open("test_final.json", 'w', encoding='utf-8') as f:
+    with open("training.json", 'w', encoding='utf-8') as f:
         json.dump(train_data, f, ensure_ascii=False, indent=2)
 
     # Save the training sentences and annotations to a JSON file
-    with open("test_final_sentences_and_annotations.json", 'w', encoding='utf-8') as f:
+    with open("training_readable.json", 'w', encoding='utf-8') as f:
         json.dump(training_sentences_and_annotations, f, ensure_ascii=False, indent=2)
