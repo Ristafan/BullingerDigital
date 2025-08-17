@@ -51,6 +51,14 @@ To fine-tune the model, you first need to extract training data from the XML fil
 The XMLDocumentParserForNer class is designed to parse XML documents containing Named Entity Recognition (NER) annotations. It processes both the summary and body sections of the XML, extracts sentences, and identifies entities such as persons and places. The class also supports handling nested structures and reference IDs for entities.
 
 ### Usage
-- To use the `XMLDocumentParserForNER`, you can find an example at the bottom of the `XMLDocumentParserForNER.py` file. You need to specify the directory containing the XML files. Two output files will be generated: `training.json` and `training_readable.json`. The `training.json` file is used for training the model, while the `training_readable.json` file is a more human-readable format.
+- To use the `XMLDocumentParserForNER`, you can find an example at the bottom of the `XMLDocumentParserForNER.py` file. You need to specify the directory containing the XML files. Two output files will be generated: `training.json` and `training_readable.json`. The `training.json` file is used for training the model, while the `training_readable.json` file is a more human-readable format and will be used by the `NER` class to make predictions using the fine-tuned model.
 - To use the `FineTuner`, you can find an example at the bottom of the `FineTuner.py` file. You need to specify the path to the training dataset in JSON format (that we generated in the previous step) and the name of the pre-trained model you want to fine-tune.
 
+## Using the Fine-tuned Model
+To use the fine-tuned model for Named Entity Recognition (NER), you can utilize the `NER` class found in the `src/GLiNER` directory. This class is designed to load the fine-tuned model and make predictions on new text data.
+
+### Usage
+To use the `NER` class, you can find an example at the bottom of the `NER.py` file. You need to specify the path to the fine-tuned model and the text you want to analyze for named entities and the variable `labels_available` if true labels for the entities are available from the test set. In the line `entities = ner.predict(original_sentence, labels=["Location", "Person"], threshold=0.5)`, specify which labels shou be predicted. Right after this line are two method calls, where you can specify own additional rules to filter out entities that you do not want to be included in the final output, or entities that you want to be included in the final output.
+The script will return two files: `predicted_entities.json` and `predicted_entities.txt`, where `predicted_entities.json` contains the predicted entities in JSON format, and `predicted_entities.txt` contains the predicted entities in a human-readable format.
+
+### Analyzing the Results
