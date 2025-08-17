@@ -225,9 +225,8 @@ class XmlParser:
 
 
 if __name__ == "__main__":
-    folder_path = "C:/Users/MartinFaehnrich/Documents/BullingerDigi/data/letters"
-    filepath = "G:/Meine Ablage/ILU/OLD/1_OLD.xml"
-
+    # This class is used to parse XML files, extract person and place names, and save them as JSON files.
+    folder_path = ""  # Specify the folder containing XML files
     all_files = glob.glob(folder_path + "/*.xml")
 
     for file in all_files:
@@ -236,7 +235,3 @@ if __name__ == "__main__":
         pers_names_summary, place_names_summary, pers_names_body, place_names_body = parser.parse_xml(file)
         # parser.print_content()
         parser.save_entities_as_json(file)
-
-    # files = glob.glob("G:/Meine Ablage/ILU/BullingerDigital/src/PreProcessing/Entities/*_entities.json")
-    # parser = XmlParser()
-    # parser.json_files_to_csv(files)
