@@ -156,5 +156,5 @@ if __name__ == "__main__":
     print("JSON Output:")
     print(json_output)
 
-    with open('persons.json', 'w', encoding='utf-8') as f:
+    with open('EmbeddingSimilarities/persons.json', 'w', encoding='utf-8') as f:
         json.dump(json_output, f, indent=2, ensure_ascii=False)
