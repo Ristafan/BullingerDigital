@@ -54,6 +54,44 @@ The XMLDocumentParserForNer class is designed to parse XML documents containing 
 - To use the `XMLDocumentParserForNER`, you can find an example at the bottom of the `XMLDocumentParserForNER.py` file. You need to specify the directory containing the XML files. Two output files will be generated: `training.json` and `training_readable.json`. The `training.json` file is used for training the model, while the `training_readable.json` file is a more human-readable format and will be used by the `NER` class to make predictions using the fine-tuned model.
 - To use the `FineTuner`, you can find an example at the bottom of the `FineTuner.py` file. You need to specify the path to the training dataset in JSON format (that we generated in the previous step) and the name of the pre-trained model you want to fine-tune.
 
+### Json Format of Training Data
+Following is an example of the JSON format used for training data. The `tokenized_text` field contains the tokenized version of the text, and the `ner` field contains the named entity recognition annotations, where each entity is represented by a start index, end index, and label.
+```json
+[
+  {
+    "tokenized_text": [
+      "De",
+      "rebus",
+      "aliis",
+      ",",
+      "quę",
+      "scire",
+      "vos",
+      "refert",
+      ",",
+      "copiose",
+      ",",
+      "credo",
+      ",",
+      "vos",
+      "Hedio",
+      "noster",
+      "certiores",
+      "facit",
+      "."
+    ],
+    "ner": [
+      [
+        14,
+        14,
+        "person"
+      ]
+    ]
+  },
+...
+]
+```
+
 ## Using the Fine-tuned Model
 To use the fine-tuned model for Named Entity Recognition (NER), you can utilize the `NER` class found in the `src/GLiNER` directory. This class is designed to load the fine-tuned model and make predictions on new text data.
 
