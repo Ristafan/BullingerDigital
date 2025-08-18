@@ -106,3 +106,16 @@ At the bottom of the `ResultComparer.py` file, you can find an example of how to
 ## Additional Scripts
 In the folder `src/EntityLinking` you can find additional scripts that can be used to evaluate ambiguities in the id labels for persons and places. The `PlaceExtractor.py` and `PersonExtractor.py` scripts are designed to extract the entities from the XML files, from https://github.com/bullinger-digital/bullinger-korpus-tei/tree/main/data/index.
 Based on the output json files from these scripts, the files `PlaceAmbiguityAnalyzer.py` and `PersonAmbiguityAnalyzer.py` can be used to analyze the ambiguities in the id labels for persons and places. These scripts will print some information about the ambiguities, such as the number of entities with the same string but different id labels and other metrics that can help you understand the quality of the data.
+
+## Requirements
+To run the scripts in this project, you need to have Python 3.8 or higher installed. You can install the required packages using pip:
+
+```bash
+pip install -r requirements.txt
+```
+
+## Background on project
+The Bullinger-Digital-Merging project is part of the Bullinger Digital initiative, which aims to digitize and make accessible the correspondence of the theologian Johann Heinrich Bullinger. The project focuses on enhancing the discoverability and integration of the Bullinger correspondence into broader knowledge systems through automated entity recognition and linking.
+For more information about the Bullinger Digital initiative, you can visit the [Bullinger Digital website](https://www.bullinger-digital.ch/).
+
+## 
