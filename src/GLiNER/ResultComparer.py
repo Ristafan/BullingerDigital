@@ -33,10 +33,6 @@ class ResultComparer:
         print("Starting evaluation...")
 
         for filename_and_sentence_idx in self.tokenized_sentences.keys():
-            if filename_and_sentence_idx.endswith('body'):
-                pass
-            else:
-                continue
 
             label_entities = self.labels[filename_and_sentence_idx]
             predicted_entities = self.predictions[filename_and_sentence_idx]
@@ -651,15 +647,15 @@ class ResultComparer:
 
 if __name__ == "__main__":
     # Usage examples:
-    evaluator = ResultComparer('predicted_entities_final.json')
+    evaluator = ResultComparer('predicted_entities.json')
     sentence_results, file_results, testset_results = evaluator.evaluate()
 
     # View colored sentences in different ways:
-    #evaluator.print_colored_sentences(5)  # Console display
+    evaluator.print_colored_sentences(5)  # Console display
     evaluator.save_colored_sentences_html("results.html", 10000)  # Save to HTML file
     html_content = evaluator.display_colored_sentences_html(10)  # Get HTML string
 
     # Get detailed metrics:
-    #evaluator.print_detailed_file_metrics()  # All files
-    file_metric = evaluator.get_file_metrics("1.xml")  # Specific file
+    evaluator.print_detailed_file_metrics()  # All files
+    # file_metric = evaluator.get_file_metrics("1.xml")  # Specific file
     all_metrics = evaluator.get_file_metrics()  # All files as dict

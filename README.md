@@ -62,3 +62,5 @@ To use the `NER` class, you can find an example at the bottom of the `NER.py` fi
 The script will return two files: `predicted_entities.json` and `predicted_entities.txt`, where `predicted_entities.json` contains the predicted entities in JSON format, and `predicted_entities.txt` contains the predicted entities in a human-readable format.
 
 ### Analyzing the Results
+To analyze the results of the NER predictions, you can use the `ResultComparer` class found in the `src/GLiNER` directory. This class is designed to evaluate the performance of the NER model by comparing the predicted entities with the ground truth labels.
+At the bottom of the `ResultComparer.py` file, you can find an example of how to use the class. You need to specify the paths to the json file created by the `NER.py` script. The script will output various evaluation metrics such as precision, recall, and F1-score, which can help you assess the performance of your NER model. It will also output a file `results.html` that contains color-coded results of each sentence, highlighting the entities that were correctly predicted, missed, or incorrectly predicted.
